@@ -1,11 +1,15 @@
 #include "configbits.h"
 #include <xc.h>
+#include <stdbool.h>  // Pour gérer echange en booléen
 
 #define LEDS_D LATD
 #define LEDS_B LATB
 #define ALL_OFF 0x00
 #define FIRST_LED 0x01
 #define LAST_LED  0x10
+
+volatile bool echange = false;  // Variable modifiée dans l'interruption
+volatile unsigned char chenillard = FIRST_LED;  // LED active
 
 // Initialisation des ports
 void init_ports(void) {
@@ -15,29 +19,29 @@ void init_ports(void) {
     LEDS_B = ALL_OFF;  // Éteindre LEDs D5-D8
 }
 
-// Initialisation du Timer2 avec valeurs en brut
+// Initialisation du Timer2 avec interruption
 void init_timer2(void) {
-    PR2 = 124;            // Valeur brute pour PR2 (1 ms)
-    T2CONbits.TMR2ON = 1; // Activer le Timer2
-    T2CONbits.T2CKPS = 0b00;  // Prescaler = 1:1
+    PR2 = 124;               // Valeur de PR2 pour obtenir 1ms
+    T2CONbits.TMR2ON = 1;    // Activer Timer2
+    T2CONbits.T2CKPS = 0b00; // Prescaler = 1:1
     T2CONbits.T2OUTPS = 0b1111; // Postscaler = 1:16
+
+    PIE1bits.TMR2IE = 1; // Activation de l'interruption Timer2
+    INTCONbits.PEIE = 1; // Activation des interruptions périphériques
+    INTCONbits.GIE = 1;  // Activation des interruptions globales
 }
 
-void main(void) {
-    init_ports();
-    init_timer2();
+// Routine d'interruption (ISR)
+void __interrupt() isr(void) {
+    if (PIR1bits.TMR2IF) {  // Vérifier si l'interruption provient du Timer2
+        PIR1bits.TMR2IF = 0;  // Réinitialiser le flag
 
-    int compteur = 0;
-    int echange = 0;  // Permet de basculer entre PORTD et PORTB
-    unsigned char chenillard = FIRST_LED;  // LED actuelle
-
-    while (1) {
-        if (echange == 0) {
+        if (!echange) {
             LEDS_B = ALL_OFF;     // Éteindre LEDs de PORTB
             LEDS_D = chenillard;  // Allumer LED de PORTD
             chenillard <<= 1;     // Décaler la LED vers la gauche
             if (chenillard == LAST_LED) {  // Si on arrive à la dernière LED
-                echange = 1;               // On passe à PORTB
+                echange = true;            // On passe à PORTB
                 chenillard = FIRST_LED;    // On recommence depuis la première LED
             }
         } else {
@@ -45,17 +49,19 @@ void main(void) {
             LEDS_B = chenillard;  // Allumer LEDs de PORTB
             chenillard <<= 1;     // Décaler la LED vers la gauche
             if (chenillard == LAST_LED) {  // Si on arrive à la dernière LED
-                echange = 0;               // On repasse à PORTD
+                echange = false;           // On repasse à PORTD
                 chenillard = FIRST_LED;    // On recommence depuis la première LED
             }
         }
+    }
+}
 
-        // Attendre 125 interruptions du Timer2 (1ms * 125 = 125ms)
-        while (compteur < 125) {
-            while (!PIR1bits.TMR2IF) {}  // Attendre que le Timer2 expire
-            PIR1bits.TMR2IF = 0;         // Réinitialiser le flag
-            compteur++;
-        }
-        compteur = 0;
+void main(void) {
+    init_ports();
+    init_timer2();
+
+    while (1) {
+        // Le programme principal ne fait rien
+        // Tout est géré par l'interruption Timer 2
     }
 }
