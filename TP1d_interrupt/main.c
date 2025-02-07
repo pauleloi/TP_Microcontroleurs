@@ -8,7 +8,8 @@
 #define FIRST_LED 0x01
 #define LAST_LED  0x10
 
-volatile bool echange = false;  // Variable modifiée dans l'interruption
+volatile int echange = 0;  // Variable modifiée dans l'interruption
+volatile int cpt = 0;
 volatile unsigned char chenillard = FIRST_LED;  // LED active
 
 // Initialisation des ports
@@ -36,23 +37,30 @@ void __interrupt() isr(void) {
     if (PIR1bits.TMR2IF) {  // Vérifier si l'interruption provient du Timer2
         PIR1bits.TMR2IF = 0;  // Réinitialiser le flag
 
-        if (!echange) {
-            LEDS_B = ALL_OFF;     // Éteindre LEDs de PORTB
-            LEDS_D = chenillard;  // Allumer LED de PORTD
-            chenillard <<= 1;     // Décaler la LED vers la gauche
-            if (chenillard == LAST_LED) {  // Si on arrive à la dernière LED
-                echange = true;            // On passe à PORTB
-                chenillard = FIRST_LED;    // On recommence depuis la première LED
-            }
-        } else {
-            LEDS_D = ALL_OFF;     // Éteindre LEDs de PORTD
-            LEDS_B = chenillard;  // Allumer LEDs de PORTB
-            chenillard <<= 1;     // Décaler la LED vers la gauche
-            if (chenillard == LAST_LED) {  // Si on arrive à la dernière LED
-                echange = false;           // On repasse à PORTD
-                chenillard = FIRST_LED;    // On recommence depuis la première LED
+        cpt++; // Incrémentation du compteur AVANT la vérification
+
+        if (cpt >= 125) { // Exécuter le chenillard une fois tous les 125 cycles
+            cpt = 0;      // Réinitialiser le compteur
+
+            if (echange == 0) {
+                LEDS_B = ALL_OFF;     // Éteindre LEDs de PORTB
+                LEDS_D = chenillard;  // Allumer LED de PORTD
+                chenillard <<= 1;     // Décaler la LED vers la gauche
+                if (chenillard == LAST_LED) {  // Si on arrive à la dernière LED
+                    echange = 1;               // On passe à PORTB
+                    chenillard = FIRST_LED;    // On recommence depuis la première LED
+                }
+            } else {
+                LEDS_D = ALL_OFF;     // Éteindre LEDs de PORTD
+                LEDS_B = chenillard;  // Allumer LEDs de PORTB
+                chenillard <<= 1;     // Décaler la LED vers la gauche
+                if (chenillard == LAST_LED) {  // Si on arrive à la dernière LED
+                    echange = 0;               // On repasse à PORTD
+                    chenillard = FIRST_LED;    // On recommence depuis la première LED
+                }
             }
         }
+
     }
 }
 
