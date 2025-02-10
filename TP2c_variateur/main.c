@@ -15,7 +15,7 @@
 #define PWM_PERIOD 199  // PR2 = 199 pour obtenir 1 kHz
 
 // Définition des duty cycles
-#define DUTY_CYCLE_LOW  0.1  // 10% lorsque le bouton est relâché
+#define DUTY_CYCLE_LOW  0.0  // 10% lorsque le bouton est relâché
 #define DUTY_CYCLE_HIGH 1.0  // 100% lorsque le bouton est appuyé
 
 // Initialisation des ports et du bouton
@@ -23,10 +23,12 @@ void init_ports(void) {
     // Configuration des sorties pour les LEDs
     TRISD = 0x00;  // PORTD en sortie
     LATD = 0x00;   // Éteindre LEDs sur PORTD
+    TRISB = 0x00;  // PORTB en sortie
+    LATB = 0x00;   // Éteindre LEDs sur PORTB
 
-    // Configuration du bouton en entrée
-    TRISBbits.BOUTON_TRIS = 1; // PORTB0 en entrée
-    ANSELB = 0x00;             // Désactiver les entrées analogiques (car utilisation du bouton)
+    // Configuration du potentiomètre en entrée analogique
+    TRISA |= 0x01;  // Active uniquement le bit 0 de TRISA (RA0 en entrée)
+    ANSELA |= 0x01; // Active uniquement le bit 0 de ANSELA (RA0 en mode analogique)
 }
 
 // Initialisation de la PWM4
@@ -46,6 +48,20 @@ void init_pwm4(void) {
     T2CONbits.TMR2ON = 1;
 }
 
+// Initialisation de l'ADC
+void init_adc(void) {
+    ADCON0 = (0 << 2);    // Sélectionner le canal AN0 (RA0)
+    ADCON1 = 0x80;        // Justification à droite, VREF = VDD
+    ADCON0bits.ADON = 1;  // Activer l'ADC
+}
+
+// Lecture de l'ADC
+unsigned int read_adc(void) {
+    ADCON0bits.GO = 1;       // Démarrer la conversion
+    while (ADCON0bits.GO);  // Attendre la fin de la conversion
+    return ((ADRESH << 8) + ADRESL);  // Retourner la valeur 10 bits
+}
+
 // Fonction pour ajuster le duty cycle du PWM
 void set_pwm_duty_cycle(float duty_cycle_ratio) {
     // (PWMxDCH:PWMxDCL<7:6>)=DutyCycleRatio×4×(PR2+1)
@@ -55,15 +71,17 @@ void set_pwm_duty_cycle(float duty_cycle_ratio) {
     PWM4DCL = (pwm_value << 6) & 0xC0;  // Stockage des 2 bits de poids faible
 }
 
-// Mise à jour du PWM selon l'état du bouton
-void update_pwm_duty_cycle(void) {
-    // if
-    set_pwm_duty_cycle((BOUTON_PORT == 0) ? DUTY_CYCLE_HIGH : DUTY_CYCLE_LOW);
+// Met à jour le duty cycle de la LED en fonction du potentiomètre
+void update_pwm_from_adc(void) {
+    unsigned int adc_value = read_adc();  // Lire l'ADC
+    float duty_cycle = (float)adc_value / 1024;  // Convertir en rapport cyclique (0.0 - 1.0)
+    set_pwm_duty_cycle(duty_cycle);
 }
 
 // Fonction de configuration initiale
 void setup(void) {
     init_ports();
+    init_adc();
     init_pwm4();
 }
 
@@ -72,6 +90,6 @@ void main(void) {
     setup();
 
     while (1) {
-        update_pwm_duty_cycle();  // Ajuster la luminosité de la LED en fonction du bouton
+        update_pwm_from_adc();  // Ajuster la luminosité de la LED en fonction du bouton
     }
 }
