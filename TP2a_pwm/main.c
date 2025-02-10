@@ -39,7 +39,7 @@ void init_pwm4(void) {
     T2CONbits.T2OUTPS = PWM_POSTSCALER;  // Postscaler défini
     PR2 = PWM_PERIOD;                    // Période de la PWM
 
-    // Activater de PWM4
+    // Activer de PWM4
     PWM4CONbits.PWM4EN = 1;
 
     // Attribution PPS pour RD0 (Sortie PWM)
