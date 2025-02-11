@@ -50,22 +50,3 @@ void WriteTable(const char *table) {
         i++;
     }
 }
-
-void main(void) {
-    // Configuration UART
-    init_uart();
-
-    // Envoie d'un caractère
-    Write('>');
-
-    // Définition du tableau de caractères à envoyer
-    const char message[] = "Hello, World!\n\r";
-    // Calcul de la longueur du message (sans compter le caractère nul)
-    unsigned int message_length = sizeof(message) - 1;
-
-    while(1) {
-        // Envoyer le contenu du tableau et s'arrêter après le dernier caractère
-        WriteTable(message);
-        __delay_ms(1000);
-    }
-}
